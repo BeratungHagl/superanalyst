@@ -1,14 +1,32 @@
 from datetime import date
-from models import CompanyProfile, StrategicAnalysis
+from models import (
+    CompanyProfile, StrategicAnalysis,
+    DemandIntelligence, CompetitiveIntelligence, AIVisibilityIntelligence,
+    Scoring, ExternalIntelligence, ExecutiveSummary,
+)
+
+
+def _score_bar(score: int) -> str:
+    filled = "█" * score
+    empty = "░" * (10 - score)
+    return f"{filled}{empty} {score}/10"
 
 
 def generate_report(
     profile: CompanyProfile,
-    analysis: StrategicAnalysis,
+    results: dict,
     extra_sources: dict | None = None,
 ) -> str:
     today = date.today().strftime("%d.%m.%Y")
     extra_sources = extra_sources or {}
+
+    strategy: StrategicAnalysis = results["strategy"]
+    demand: DemandIntelligence = results["demand"]
+    competitive: CompetitiveIntelligence = results["competitive"]
+    ai: AIVisibilityIntelligence = results["ai_visibility"]
+    scoring: Scoring = results["scoring"]
+    external: ExternalIntelligence = results["external"]
+    executive: ExecutiveSummary = results["executive"]
 
     ansprechpartner = (
         "\n".join(f"  - {p}" for p in profile.ansprechpartner)
@@ -16,11 +34,31 @@ def generate_report(
         else "  - Nicht identifiziert"
     )
 
-    # Zusatzquellen-Abschnitt
-    sources_section = _build_sources_section(extra_sources)
+    bullets_md = "\n".join(f"- {b}" for b in executive.bullets)
+
+    # Quellen-Status
+    sources_rows = _build_sources_table(extra_sources)
 
     report = f"""# Unternehmensanalyse: {profile.firmenname}
 *Erstellt am {today} | Super Analyst V2*
+
+---
+
+## Executive Summary
+
+{bullets_md}
+
+---
+
+## Scoring-Übersicht
+
+| Dimension | Score | Bewertung |
+|---|---|---|
+| **Positionierung** | {_score_bar(scoring.positionierung_score)} | {scoring.positionierung_begruendung} |
+| **Demand** | {_score_bar(scoring.demand_score)} | {demand.demand_score_begruendung} |
+| **Competitive** | {_score_bar(scoring.competitive_score)} | {competitive.competitive_score_begruendung} |
+| **AI Visibility** | {_score_bar(scoring.ai_visibility_score)} | {ai.ai_visibility_score_begruendung} |
+| **🏆 Gesamt** | {_score_bar(scoring.gesamt_score)} | {scoring.gesamt_begruendung} |
 
 ---
 
@@ -41,124 +79,169 @@ def generate_report(
 
 ---
 
-{sources_section}
+## Datenquellen
+
+{sources_rows}
 
 ---
 
-## 1. Unternehmen
+## External Intelligence
 
-### Was wird verkauft?
-{analysis.was_wird_verkauft}
+### Demand Signals
+{external.demand_signals}
 
-### Leistungen
-{analysis.leistungen}
+### Competitive Signals
+{external.competitive_signals}
 
-### Welche Probleme werden gelöst?
-{analysis.probleme_die_geloest_werden}
+### AI Visibility
+{external.ai_visibility_summary}
 
----
+### Chancen
+{external.chancen}
 
-## 2. Zielgruppe
-
-### Wahrscheinliche Zielgruppe
-{analysis.zielgruppe}
-
-### Adressierte Kundengruppen
-{analysis.kundengruppen}
-
-### Spezifität der Zielgruppe
-{analysis.spezifitaet_zielgruppe}
+### Risiken
+{external.risiken}
 
 ---
 
-## 3. Positionierung
+## Demand Intelligence
 
-### Klarheit der Positionierung
-{analysis.klarheit_positionierung}
+### Sichtbarkeit
+{demand.sichtbarkeit}
 
-### Differenzierung vom Wettbewerb
-{analysis.differenzierung}
+### Gefundene Themen & Keywords
+{demand.gefundene_themen}
 
-### Kommunikationsstil
-{analysis.kommunikation_generisch_oder_konkret}
+### Nachfragepotenziale
+{demand.nachfragepotenziale}
 
----
+### Unbesetzte Themen
+{demand.unbesetzte_themen}
 
-## 4. Leistungsversprechen
-
-### Kommuniziertes Leistungsversprechen
-{analysis.leistungsversprechen}
-
-### Leistungen vs. Ergebnisse
-{analysis.leistungen_vs_ergebnisse}
+**Demand Score: {_score_bar(demand.demand_score)}**
+*{demand.demand_score_begruendung}*
 
 ---
 
-## 5. Wachstum & Chancen
+## Competitive Intelligence
 
-### Mögliche Wachstumshemmnisse
-{analysis.wachstumshemmnisse}
+### Stärkste Wettbewerber
+{competitive.staerkste_wettbewerber}
 
-### Identifizierte Schwachstellen
-{analysis.schwachstellen}
+### Themen-Dominanz
+{competitive.themen_dominanz}
 
-### Erkennbare Chancen
-{analysis.chancen}
+### Häufiger gefunden
+{competitive.haeufiger_gefunden}
+
+**Competitive Score: {_score_bar(competitive.competitive_score)}**
+*{competitive.competitive_score_begruendung}*
 
 ---
 
-## 6. Beratungshypothesen
+## AI Visibility Intelligence
 
-### Ziel des Erstkontakts (Hypothese)
-{analysis.ziel_des_kontakts}
+### Markennennung in AI-Systemen
+{ai.marke_in_ai_genannt}
 
-### Vermutete Herausforderungen
-{analysis.vermutete_herausforderungen}
+### Wettbewerber in AI-Systemen
+{ai.wettbewerber_in_ai}
 
-### Relevante Analysebereiche
-{analysis.relevante_analysebereiche}
+### Verwendete Quellen
+{ai.verwendete_quellen}
+
+### Themen mit AI-Sichtbarkeit
+{ai.themen_mit_ai_sichtbarkeit}
+
+**AI Visibility Score: {_score_bar(ai.ai_visibility_score)}**
+*{ai.ai_visibility_score_begruendung}*
+
+---
+
+## Strategische Analyse
+
+### 1. Unternehmen
+
+**Was wird verkauft?**
+{strategy.was_wird_verkauft}
+
+**Leistungen**
+{strategy.leistungen}
+
+**Welche Probleme werden gelöst?**
+{strategy.probleme_die_geloest_werden}
+
+### 2. Zielgruppe
+
+**Wahrscheinliche Zielgruppe**
+{strategy.zielgruppe}
+
+**Adressierte Kundengruppen**
+{strategy.kundengruppen}
+
+**Spezifität**
+{strategy.spezifitaet_zielgruppe}
+
+### 3. Positionierung
+
+**Klarheit der Positionierung**
+{strategy.klarheit_positionierung}
+
+**Differenzierung**
+{strategy.differenzierung}
+
+**Kommunikationsstil**
+{strategy.kommunikation_generisch_oder_konkret}
+
+**Positionierung Score: {_score_bar(scoring.positionierung_score)}**
+
+### 4. Leistungsversprechen
+
+{strategy.leistungsversprechen}
+
+*Leistungen vs. Ergebnisse: {strategy.leistungen_vs_ergebnisse}*
+
+### 5. Wachstum
+
+**Wachstumshemmnisse**
+{strategy.wachstumshemmnisse}
+
+**Schwachstellen**
+{strategy.schwachstellen}
+
+**Chancen**
+{strategy.chancen}
+
+---
+
+## Beratungshypothesen
+
+| Aspekt | Hypothese |
+|---|---|
+| **Ziel des Erstkontakts** | {strategy.ziel_des_kontakts} |
+| **Vermutete Herausforderungen** | {strategy.vermutete_herausforderungen} |
+| **Relevante Analysebereiche** | {strategy.relevante_analysebereiche} |
 
 ---
 
 *Dieser Report wurde automatisch auf Basis öffentlich zugänglicher Daten erstellt.*
-*Quellen: Website, Northdata, Sistrix, Amazon{", LinkedIn" if extra_sources.get("linkedin", {}).get("available") else ""}{", Google News" if extra_sources.get("google", {}).get("available") else ""}*
 *Super Analyst V2 | {today}*
 """
     return report
 
 
-def _build_sources_section(extra_sources: dict) -> str:
-    lines = ["## Datenquellen\n"]
-
-    # Northdata
-    nd = extra_sources.get("northdata", {})
-    lines.append(f"| **Northdata** | {'✅ Verfügbar' if nd.get('available') else '⚠️ Nicht verfügbar'} |")
-
-    # Sistrix
+def _build_sources_table(extra_sources: dict) -> str:
     sx = extra_sources.get("sistrix", {})
-    if sx.get("available"):
-        si_val = sx.get("sichtbarkeitsindex", "–")
-        trend = sx.get("trend", "–")
-        lines.append(f"| **Sistrix SEO** | ✅ Sichtbarkeitsindex: {si_val} (Trend: {trend}) |")
-        kws = sx.get("top_keywords", [])
-        if kws:
-            kw_str = ", ".join(f"{k['keyword']} (#{k['position']})" for k in kws[:5])
-            lines.append(f"| **Top-Keywords** | {kw_str} |")
-    else:
-        lines.append(f"| **Sistrix SEO** | ⚠️ Nicht verfügbar |")
+    si_info = f"Sichtbarkeitsindex {sx.get('sichtbarkeitsindex')} (Trend: {sx.get('trend')})" if sx.get("available") else "–"
 
-    # Amazon
-    az = extra_sources.get("amazon", {})
-    lines.append(f"| **Amazon** | {'✅ Präsenz gefunden' if az.get('available') else '⚠️ Keine Daten'} |")
+    rows = [
+        ("Northdata", "✅" if extra_sources.get("northdata", {}).get("available") else "⚠️ n.v."),
+        ("Sistrix SEO", f"✅ {si_info}" if sx.get("available") else "⚠️ n.v."),
+        ("Amazon", "✅" if extra_sources.get("amazon", {}).get("available") else "⚠️ n.v."),
+        ("LinkedIn", "✅" if extra_sources.get("linkedin", {}).get("available") else "–"),
+        ("Google News", "✅" if extra_sources.get("google", {}).get("available") else "–"),
+    ]
 
-    # LinkedIn
-    li = extra_sources.get("linkedin", {})
-    lines.append(f"| **LinkedIn** | {'✅ Profil geladen' if li.get('available') else '–'} |")
-
-    # Google
-    gn = extra_sources.get("google", {})
-    lines.append(f"| **Google News** | {'✅ News gefunden' if gn.get('available') else '–'} |")
-
-    table_header = "| Quelle | Status |\n|---|---|"
-    rows = "\n".join(lines[1:])
-    return f"{lines[0]}{table_header}\n{rows}"
+    table = "| Quelle | Status |\n|---|---|\n"
+    table += "\n".join(f"| **{name}** | {status} |" for name, status in rows)
+    return table
