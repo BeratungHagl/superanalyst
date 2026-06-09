@@ -2,8 +2,13 @@ from datetime import date
 from models import CompanyProfile, StrategicAnalysis
 
 
-def generate_report(profile: CompanyProfile, analysis: StrategicAnalysis) -> str:
+def generate_report(
+    profile: CompanyProfile,
+    analysis: StrategicAnalysis,
+    extra_sources: dict | None = None,
+) -> str:
     today = date.today().strftime("%d.%m.%Y")
+    extra_sources = extra_sources or {}
 
     ansprechpartner = (
         "\n".join(f"  - {p}" for p in profile.ansprechpartner)
@@ -11,8 +16,11 @@ def generate_report(profile: CompanyProfile, analysis: StrategicAnalysis) -> str
         else "  - Nicht identifiziert"
     )
 
+    # Zusatzquellen-Abschnitt
+    sources_section = _build_sources_section(extra_sources)
+
     report = f"""# Unternehmensanalyse: {profile.firmenname}
-*Erstellt am {today} | Super Analyst*
+*Erstellt am {today} | Super Analyst V2*
 
 ---
 
@@ -30,6 +38,10 @@ def generate_report(profile: CompanyProfile, analysis: StrategicAnalysis) -> str
 
 ### Ansprechpartner
 {ansprechpartner}
+
+---
+
+{sources_section}
 
 ---
 
@@ -108,7 +120,45 @@ def generate_report(profile: CompanyProfile, analysis: StrategicAnalysis) -> str
 
 ---
 
-*Dieser Report wurde automatisch auf Basis öffentlich zugänglicher Website-Inhalte erstellt.*
-*Super Analyst | {today}*
+*Dieser Report wurde automatisch auf Basis öffentlich zugänglicher Daten erstellt.*
+*Quellen: Website, Northdata, Sistrix, Amazon{", LinkedIn" if extra_sources.get("linkedin", {}).get("available") else ""}{", Google News" if extra_sources.get("google", {}).get("available") else ""}*
+*Super Analyst V2 | {today}*
 """
     return report
+
+
+def _build_sources_section(extra_sources: dict) -> str:
+    lines = ["## Datenquellen\n"]
+
+    # Northdata
+    nd = extra_sources.get("northdata", {})
+    lines.append(f"| **Northdata** | {'✅ Verfügbar' if nd.get('available') else '⚠️ Nicht verfügbar'} |")
+
+    # Sistrix
+    sx = extra_sources.get("sistrix", {})
+    if sx.get("available"):
+        si_val = sx.get("sichtbarkeitsindex", "–")
+        trend = sx.get("trend", "–")
+        lines.append(f"| **Sistrix SEO** | ✅ Sichtbarkeitsindex: {si_val} (Trend: {trend}) |")
+        kws = sx.get("top_keywords", [])
+        if kws:
+            kw_str = ", ".join(f"{k['keyword']} (#{k['position']})" for k in kws[:5])
+            lines.append(f"| **Top-Keywords** | {kw_str} |")
+    else:
+        lines.append(f"| **Sistrix SEO** | ⚠️ Nicht verfügbar |")
+
+    # Amazon
+    az = extra_sources.get("amazon", {})
+    lines.append(f"| **Amazon** | {'✅ Präsenz gefunden' if az.get('available') else '⚠️ Keine Daten'} |")
+
+    # LinkedIn
+    li = extra_sources.get("linkedin", {})
+    lines.append(f"| **LinkedIn** | {'✅ Profil geladen' if li.get('available') else '–'} |")
+
+    # Google
+    gn = extra_sources.get("google", {})
+    lines.append(f"| **Google News** | {'✅ News gefunden' if gn.get('available') else '–'} |")
+
+    table_header = "| Quelle | Status |\n|---|---|"
+    rows = "\n".join(lines[1:])
+    return f"{lines[0]}{table_header}\n{rows}"

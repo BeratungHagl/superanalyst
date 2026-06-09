@@ -12,11 +12,51 @@ MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 
 
 def _build_content(scraped: dict) -> str:
-    """Alle gescrapten Seiten zu einem Text zusammenführen."""
+    """Website-Seiten zu einem Text zusammenführen."""
     parts = []
     for page in scraped.get("pages", []):
         parts.append(f"--- Seite: {page.get('url', '')} ---\n{page.get('content', '')}")
-    return "\n\n".join(parts)[:60000]  # Token-Limit einhalten
+    return "\n\n".join(parts)[:40000]
+
+
+def _build_enriched_content(scraped: dict, extra_sources: dict) -> str:
+    """Website + alle Zusatzquellen zu einem Analysetext zusammenführen."""
+    parts = [_build_content(scraped)]
+
+    # Northdata
+    nd = extra_sources.get("northdata", {})
+    if nd.get("available") and nd.get("content"):
+        parts.append(f"--- NORTHDATA (Firmendaten) ---\n{nd['content'][:5000]}")
+
+    # Sistrix
+    sx = extra_sources.get("sistrix", {})
+    if sx.get("available"):
+        si_text = f"Sichtbarkeitsindex: {sx.get('sichtbarkeitsindex')} (Trend: {sx.get('trend')})\n"
+        keywords = sx.get("top_keywords", [])
+        if keywords:
+            si_text += "Top-Keywords:\n" + "\n".join(
+                f"  - {kw['keyword']} (Position {kw['position']})" for kw in keywords
+            )
+        parts.append(f"--- SISTRIX (SEO) ---\n{si_text}")
+
+    # Amazon
+    az = extra_sources.get("amazon", {})
+    if az.get("available"):
+        parts.append(f"--- AMAZON (Suchergebnisse für '{az.get('search_term')}') ---\n{az.get('own_presence', '')[:5000]}")
+        if az.get("competitors"):
+            parts.append(f"--- AMAZON (Wettbewerber) ---\n{az.get('competitors', '')[:3000]}")
+
+    # LinkedIn
+    li = extra_sources.get("linkedin", {})
+    if li.get("available") and li.get("content"):
+        parts.append(f"--- LINKEDIN ---\n{li['content'][:3000]}")
+
+    # Google News
+    gn = extra_sources.get("google", {})
+    if gn.get("available") and gn.get("content"):
+        parts.append(f"--- GOOGLE NEWS ---\n{gn['content'][:3000]}")
+
+    return "\n\n".join(parts)[:70000]
 
 
 def extract_profile(scraped: dict) -> CompanyProfile:
@@ -38,9 +78,13 @@ def extract_profile(scraped: dict) -> CompanyProfile:
     return CompanyProfile(**data)
 
 
-def analyze_strategy(profile: CompanyProfile, scraped: dict) -> StrategicAnalysis:
-    """Schritt 2: Strategische Tiefenanalyse."""
-    content = _build_content(scraped)
+def analyze_strategy(
+    profile: CompanyProfile,
+    scraped: dict,
+    extra_sources: dict | None = None,
+) -> StrategicAnalysis:
+    """Schritt 2: Strategische Tiefenanalyse mit allen Datenquellen."""
+    content = _build_enriched_content(scraped, extra_sources or {})
 
     response = client.chat.completions.create(
         model=MODEL,
@@ -59,15 +103,12 @@ def analyze_strategy(profile: CompanyProfile, scraped: dict) -> StrategicAnalysi
     )
 
     raw = response.choices[0].message.content
-
-    # Antwort in strukturiertes Modell parsen
     sections = _parse_analysis(raw)
     return StrategicAnalysis(**sections)
 
 
 def _parse_analysis(text: str) -> dict:
     """Parst die freie LLM-Antwort in die Modell-Felder."""
-    # Zweiter LLM-Call: Strukturierung der Antwort als JSON
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
