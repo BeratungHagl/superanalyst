@@ -8,6 +8,7 @@ from sources.sistrix import get_sistrix
 from sources.amazon import get_amazon
 from sources.linkedin import get_linkedin
 from sources.google import get_google_news
+from sources.hunter import get_hunter
 
 st.set_page_config(
     page_title="Super Analyst",
@@ -67,9 +68,12 @@ if start and url:
                 return "google", get_google_news(profile.firmenname)
             return "google", {"available": False}
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(fn) for fn in [fetch_northdata, fetch_sistrix, fetch_amazon, fetch_linkedin, fetch_google]]
-            icons = {"northdata": "🏢", "sistrix": "📈", "amazon": "🛒", "linkedin": "💼", "google": "🔎"}
+        def fetch_hunter():
+            return "hunter", get_hunter(url)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            futures = [executor.submit(fn) for fn in [fetch_northdata, fetch_sistrix, fetch_amazon, fetch_linkedin, fetch_google, fetch_hunter]]
+            icons = {"northdata": "🏢", "sistrix": "📈", "amazon": "🛒", "linkedin": "💼", "google": "🔎", "hunter": "👤"}
             for future in concurrent.futures.as_completed(futures):
                 try:
                     key, data = future.result()

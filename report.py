@@ -28,11 +28,23 @@ def generate_report(
     external: ExternalIntelligence = results["external"]
     executive: ExecutiveSummary = results["executive"]
 
-    ansprechpartner = (
-        "\n".join(f"  - {p}" for p in profile.ansprechpartner)
-        if profile.ansprechpartner
-        else "  - Nicht identifiziert"
-    )
+    # Ansprechpartner: Hunter-Daten bevorzugen, sonst Profil-Extraktion
+    hunter = extra_sources.get("hunter", {})
+    if hunter.get("available") and hunter.get("kontakte"):
+        ansprechpartner_lines = []
+        for k in hunter["kontakte"][:5]:
+            line = f"  - **{k['name']}** — {k['position'] or 'Position unbekannt'}"
+            if k.get("abteilung"):
+                line += f" | {k['abteilung']}"
+            line += f" | `{k['email']}`"
+            if k.get("confidence"):
+                line += f" *(Konfidenz: {k['confidence']}%)*"
+            ansprechpartner_lines.append(line)
+        ansprechpartner = "\n".join(ansprechpartner_lines)
+    elif profile.ansprechpartner:
+        ansprechpartner = "\n".join(f"  - {p}" for p in profile.ansprechpartner)
+    else:
+        ansprechpartner = "  - Nicht identifiziert"
 
     bullets_md = "\n".join(f"- {b}" for b in executive.bullets)
 
@@ -240,6 +252,7 @@ def _build_sources_table(extra_sources: dict) -> str:
         ("Amazon", "✅" if extra_sources.get("amazon", {}).get("available") else "⚠️ n.v."),
         ("LinkedIn", "✅" if extra_sources.get("linkedin", {}).get("available") else "–"),
         ("Google News", "✅" if extra_sources.get("google", {}).get("available") else "–"),
+        ("Hunter.io", f"✅ {len(extra_sources.get('hunter', {}).get('kontakte', []))} Kontakt(e) gefunden" if extra_sources.get("hunter", {}).get("available") else "⚠️ n.v."),
     ]
 
     table = "| Quelle | Status |\n|---|---|\n"
