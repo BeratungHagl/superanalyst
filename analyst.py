@@ -73,6 +73,17 @@ def _build_enriched_content(scraped: dict, extra_sources: dict) -> str:
     return "\n\n".join(parts)[:70000]
 
 
+def _normalize(data: dict) -> dict:
+    """Konvertiert Listen-Werte zu Strings (GPT gibt manchmal Listen statt Strings zurück)."""
+    result = {}
+    for k, v in data.items():
+        if isinstance(v, list):
+            result[k] = "\n".join(f"- {item}" if not str(item).startswith("-") else str(item) for item in v)
+        else:
+            result[k] = v
+    return result
+
+
 def _parse_json(text: str, schema_hint: str) -> dict:
     """Parst freien Analysetext in ein JSON-Objekt."""
     result = _chat(
@@ -83,7 +94,7 @@ def _parse_json(text: str, schema_hint: str) -> dict:
         json_mode=True,
         temperature=0.1,
     )
-    return json.loads(result)
+    return _normalize(json.loads(result))
 
 
 # ---------------------------------------------------------------------------
