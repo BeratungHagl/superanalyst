@@ -2,6 +2,7 @@ openai
 firecrawl-py
 pydantic
 python-dotenv
+streamlit
 fastapi
 uvicorn
 httpx
