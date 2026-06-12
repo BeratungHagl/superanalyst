@@ -16,8 +16,22 @@ from prompts import (
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+def _clean_key(v):
+    # Strip invisible chars (BOM etc.) that break HTTP-header encoding when a
+    # key is pasted with a hidden U+FEFF. Built from codepoints for safety.
+    if not v:
+        return v
+    import re as _re
+    invis = "".join(chr(cp) for cp in [
+        0xFEFF, 0xFFFE, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
+        0x00AD, 0x00A0, 0x2060, 0x2061, 0x2062, 0x2063, 0x2064,
+    ])
+    return _re.sub("[" + _re.escape(invis) + "]", "", v).strip()
+
+
+client = OpenAI(api_key=_clean_key(os.getenv("OPENAI_API_KEY")))
+MODEL = _clean_key(os.getenv("OPENAI_MODEL")) or "gpt-4o"
 
 
 # ---------------------------------------------------------------------------

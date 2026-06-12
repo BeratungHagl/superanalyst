@@ -6,6 +6,56 @@ import json
 import re
 import traceback
 import concurrent.futures
+from dotenv import load_dotenv
+
+
+# ── Invisible-char sanitization ──────────────────────────────────────────────
+# Invisible characters silently embedded when pasting API keys / URLs from
+# Excel/Word/browsers/Vercel-dashboard. Built from codepoints so no literal
+# invisible chars appear in this source file. Covers: BOM (FEFF/FFFE),
+# zero-width spaces (200B-200F), soft hyphen (00AD), non-breaking space (00A0),
+# word joiner + invisible math operators (2060-2064).
+_INVIS = re.compile(
+    "|".join(
+        re.escape(chr(cp))
+        for cp in [
+            0xFEFF, 0xFFFE,
+            0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
+            0x00AD, 0x00A0,
+            0x2060, 0x2061, 0x2062, 0x2063, 0x2064,
+        ]
+    )
+)
+
+
+def _clean(s: str) -> str:
+    """Remove invisible Unicode chars that sneak in when pasting text."""
+    return _INVIS.sub("", s).strip()
+
+
+def _sanitize_environ() -> None:
+    """Strip invisible chars (BOM etc.) from all env var values.
+
+    Why this matters: an API key pasted into the Vercel dashboard often carries
+    an invisible BOM (U+FEFF). Sent as an HTTP header ('Authorization: Bearer
+    <key>'), the HTTP client fails to ascii/latin-1 encode it and raises:
+    "codec can't encode character '\\ufeff' in position 7" (position 7 = right
+    after 'Bearer '). This MUST run before importing modules that build API
+    clients at import time (e.g. analyst.py creates the OpenAI client at module
+    level), otherwise those clients capture the dirty key before we clean it.
+    """
+    for k, v in list(os.environ.items()):
+        if v:
+            cleaned = _clean(v)
+            if cleaned != v:
+                os.environ[k] = cleaned
+
+
+# Load .env (local dev) and clean env BEFORE importing app modules, so that
+# module-level clients (OpenAI, Firecrawl, …) are built with sanitized keys.
+load_dotenv()
+_sanitize_environ()
+
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,47 +79,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Invisible characters silently embedded when pasting URLs from Excel/Word/browsers.
-# Built from codepoints so no literal invisible chars appear in this source file.
-# Covers: BOM (FEFF/FFFE), zero-width spaces (200B-200F), soft hyphen (00AD),
-# non-breaking space (00A0), word joiner + invisible math operators (2060-2064).
-_INVIS = re.compile(
-    "|".join(
-        re.escape(chr(cp))
-        for cp in [
-            0xFEFF, 0xFFFE,
-            0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
-            0x00AD, 0x00A0,
-            0x2060, 0x2061, 0x2062, 0x2063, 0x2064,
-        ]
-    )
-)
-
-
-def _clean(s: str) -> str:
-    """Remove invisible Unicode chars that sneak in when pasting text."""
-    return _INVIS.sub("", s).strip()
-
-
-def _sanitize_environ() -> None:
-    """Strip invisible chars (BOM etc.) from all env var values at cold start.
-
-    API keys pasted into the Vercel dashboard frequently carry an invisible
-    BOM (U+FEFF). When such a key is sent as an HTTP header (e.g.
-    'Authorization: Bearer <key>'), httpx encodes headers as latin-1 and
-    raises: latin-1 codec can't encode character '\\ufeff' in position 7
-    (position 7 = right after 'Bearer '). Cleaning every env value once here
-    fixes it regardless of which key is affected.
-    """
-    for k, v in list(os.environ.items()):
-        if v:
-            cleaned = _clean(v)
-            if cleaned != v:
-                os.environ[k] = cleaned
-
-
-_sanitize_environ()
 
 
 class AnalyzeRequest(BaseModel):

@@ -982,7 +982,11 @@ function handleEvent(event, data) {
 
     showView("dashboard");
   } else if (event === "error") {
-    showError(data.msg);
+    let msg = data.msg;
+    if (data.where && data.where.length) {
+      msg += "  ·  " + data.where[data.where.length - 1].trim();
+    }
+    showError(msg);
     showView("input");
   }
 }
