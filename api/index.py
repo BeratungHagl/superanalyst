@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import json
 import re
+import traceback
 import concurrent.futures
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -47,8 +48,28 @@ _INVIS = re.compile(
 
 
 def _clean(s: str) -> str:
-    """Remove invisible Unicode chars that sneak in when pasting URLs."""
+    """Remove invisible Unicode chars that sneak in when pasting text."""
     return _INVIS.sub("", s).strip()
+
+
+def _sanitize_environ() -> None:
+    """Strip invisible chars (BOM etc.) from all env var values at cold start.
+
+    API keys pasted into the Vercel dashboard frequently carry an invisible
+    BOM (U+FEFF). When such a key is sent as an HTTP header (e.g.
+    'Authorization: Bearer <key>'), httpx encodes headers as latin-1 and
+    raises: latin-1 codec can't encode character '\\ufeff' in position 7
+    (position 7 = right after 'Bearer '). Cleaning every env value once here
+    fixes it regardless of which key is affected.
+    """
+    for k, v in list(os.environ.items()):
+        if v:
+            cleaned = _clean(v)
+            if cleaned != v:
+                os.environ[k] = cleaned
+
+
+_sanitize_environ()
 
 
 class AnalyzeRequest(BaseModel):
@@ -152,7 +173,8 @@ async def analyze(req: AnalyzeRequest):
             })
 
         except Exception as e:
-            yield sse("error", {"msg": str(e)})
+            tb = traceback.format_exc()
+            yield sse("error", {"msg": str(e), "where": tb.strip().splitlines()[-3:] if tb else []})
 
     return StreamingResponse(stream(), media_type="text/event-stream")
 
