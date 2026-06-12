@@ -8,7 +8,7 @@ import concurrent.futures
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from scraper import scrape_website
 from analyst import extract_profile, run_full_analysis
@@ -56,10 +56,10 @@ class AnalyzeRequest(BaseModel):
     linkedin_url: str = ""
     enable_google: bool = False
 
-    def model_post_init(self, _):
-        self.url = _clean(self.url)
-        if self.linkedin_url:
-            self.linkedin_url = _clean(self.linkedin_url)
+    @field_validator("url", "linkedin_url", mode="before")
+    @classmethod
+    def strip_invisible(cls, v: str) -> str:
+        return _clean(v)
 
 
 def sse(event: str, data: dict) -> str:
