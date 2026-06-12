@@ -902,11 +902,17 @@ function openSection(i) {
 }
 
 /* ── Analysis ── */
+function cleanUrl(s) {
+  // Remove BOM (﻿), zero-width spaces and other invisible chars
+  // that get silently embedded when pasting from Excel / Word / some browsers
+  return s.trim().replace(/^[﻿​‌‍­]+/, "");
+}
+
 async function startAnalysis() {
-  const url = document.getElementById("url").value.trim();
+  const url = cleanUrl(document.getElementById("url").value);
   if (!url) { showError("Bitte eine Unternehmenswebsite eingeben."); return; }
 
-  const linkedin = document.getElementById("linkedin").value.trim();
+  const linkedin = cleanUrl(document.getElementById("linkedin").value);
   const google   = document.getElementById("google").checked;
 
   document.getElementById("error-box").style.display = "none";

@@ -29,10 +29,21 @@ app.add_middleware(
 )
 
 
+def _clean_url(url: str) -> str:
+    # Strip BOM, zero-width spaces, and other invisible Unicode that
+    # gets silently embedded when copying URLs from Excel / Word / some browsers
+    return url.strip().lstrip("﻿​‌‍­")
+
+
 class AnalyzeRequest(BaseModel):
     url: str
     linkedin_url: str = ""
     enable_google: bool = False
+
+    def model_post_init(self, _):
+        self.url = _clean_url(self.url)
+        if self.linkedin_url:
+            self.linkedin_url = _clean_url(self.linkedin_url)
 
 
 def sse(event: str, data: dict) -> str:
