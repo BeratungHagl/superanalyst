@@ -903,9 +903,9 @@ function openSection(i) {
 
 /* ── Analysis ── */
 function cleanUrl(s) {
-  // Remove BOM (﻿), zero-width spaces and other invisible chars
-  // that get silently embedded when pasting from Excel / Word / some browsers
-  return s.trim().replace(/^[﻿​‌‍­]+/, "");
+  // Remove BOM and invisible Unicode chars anywhere in the string —
+  // they appear mid-URL (e.g. after "https://") when pasting from Excel/Word
+  return s.replace(/[﻿​‌‍­‎‏]/g, "").trim();
 }
 
 async function startAnalysis() {

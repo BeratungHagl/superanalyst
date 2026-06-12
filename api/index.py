@@ -3,6 +3,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import json
+import re
 import concurrent.futures
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -28,11 +29,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Invisible characters silently embedded when pasting URLs from Excel/Word/browsers.
+# Built from codepoints so no literal invisible chars appear in this source file.
+# Covers: BOM (FEFF/FFFE), zero-width spaces (200B-200F), soft hyphen (00AD),
+# non-breaking space (00A0), word joiner + invisible math operators (2060-2064).
+_INVIS = re.compile(
+    "|".join(
+        re.escape(chr(cp))
+        for cp in [
+            0xFEFF, 0xFFFE,
+            0x200B, 0x200C, 0x200D, 0x200E, 0x200F,
+            0x00AD, 0x00A0,
+            0x2060, 0x2061, 0x2062, 0x2063, 0x2064,
+        ]
+    )
+)
 
-def _clean_url(url: str) -> str:
-    # Strip BOM, zero-width spaces, and other invisible Unicode that
-    # gets silently embedded when copying URLs from Excel / Word / some browsers
-    return url.strip().lstrip("﻿​‌‍­")
+
+def _clean(s: str) -> str:
+    """Remove invisible Unicode chars that sneak in when pasting URLs."""
+    return _INVIS.sub("", s).strip()
 
 
 class AnalyzeRequest(BaseModel):
@@ -41,9 +57,9 @@ class AnalyzeRequest(BaseModel):
     enable_google: bool = False
 
     def model_post_init(self, _):
-        self.url = _clean_url(self.url)
+        self.url = _clean(self.url)
         if self.linkedin_url:
-            self.linkedin_url = _clean_url(self.linkedin_url)
+            self.linkedin_url = _clean(self.linkedin_url)
 
 
 def sse(event: str, data: dict) -> str:
@@ -57,20 +73,27 @@ async def analyze(req: AnalyzeRequest):
             extra_sources = {}
 
             # 1. Scraping
-            yield sse("progress", {"step": "scraping", "msg": "🌐 Website wird gescrapt..."})
+            yield sse("progress", {"step": "scraping", "msg": "\U0001f310 Website wird gescrapt..."})
             scraped = scrape_website(req.url)
             pages = len(scraped.get("pages", []))
             yield sse("progress", {"step": "scraping_done", "msg": f"✅ {pages} Seite(n) gefunden"})
 
             # 2. Profil
-            yield sse("progress", {"step": "profile", "msg": "📋 Unternehmensprofil wird extrahiert..."})
+            yield sse("progress", {"step": "profile", "msg": "\U0001f4cb Unternehmensprofil wird extrahiert..."})
             profile = extract_profile(scraped)
             yield sse("progress", {"step": "profile_done", "msg": f"✅ {profile.firmenname} | {profile.branche} | {profile.standort}"})
 
             # 3. Externe Quellen parallel
-            yield sse("progress", {"step": "sources", "msg": "📡 Externe Datenquellen werden abgerufen..."})
+            yield sse("progress", {"step": "sources", "msg": "\U0001f4e1 Externe Datenquellen werden abgerufen..."})
 
-            icons = {"northdata": "🏢", "sistrix": "📈", "amazon": "🛒", "linkedin": "💼", "google": "🔎", "hunter": "👤"}
+            icons = {
+                "northdata": "\U0001f3e2",
+                "sistrix": "\U0001f4c8",
+                "amazon": "\U0001f6d2",
+                "linkedin": "\U0001f4bc",
+                "google": "\U0001f50e",
+                "hunter": "\U0001f464",
+            }
 
             def fetch_all():
                 tasks = {
@@ -105,17 +128,16 @@ async def analyze(req: AnalyzeRequest):
             def progress_cb(msg):
                 log.append(msg)
 
-            yield sse("progress", {"step": "analysis", "msg": "🧠 KI-Analyse läuft..."})
+            yield sse("progress", {"step": "analysis", "msg": "\U0001f9e0 KI-Analyse läuft..."})
             results = run_full_analysis(profile, scraped, extra_sources, progress_callback=progress_cb)
 
             for msg in log:
                 yield sse("progress", {"step": "analysis_detail", "msg": msg})
 
             # 5. Report
-            yield sse("progress", {"step": "report", "msg": "📄 Report wird generiert..."})
+            yield sse("progress", {"step": "report", "msg": "\U0001f4c4 Report wird generiert..."})
             report_md = generate_report(profile, results, extra_sources)
 
-            # Scoring für UI
             scoring = results["scoring"]
             yield sse("done", {
                 "report": report_md,
