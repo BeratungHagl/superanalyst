@@ -3,26 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Super Analyst</title>
+<title>Super Analyst — Beratung Hagl</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg: #f6f7fb;
+    --bg: #f4f6f2;
     --card: #ffffff;
-    --border: #e9ecef;
-    --text: #1a1a2e;
+    --border: #e0e0e0;
+    --text: #1a1a1a;
     --muted: #6c757d;
-    --primary: #4361ee;
-    --primary-dark: #3451d1;
-    --good: #2f9e44;
-    --mid: #f59f00;
-    --low: #e8590c;
+    --primary: #517f34;
+    --primary-dark: #3f6428;
+    --tint: #e8f0e0;
+    --good: #517f34;
+    --mid: #c8901e;
+    --low: #c0392b;
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -39,7 +44,7 @@
     top: 0;
     z-index: 10;
   }
-  header .logo { font-size: 1.6rem; }
+  header .logo { height: 38px; width: auto; display: block; }
   header h1 { font-size: 1.35rem; font-weight: 700; }
   header p { font-size: 0.82rem; color: var(--muted); margin-top: 0.1rem; }
 
@@ -153,7 +158,7 @@
     padding: 1.1rem 0.5rem 0.9rem;
     text-align: center;
   }
-  .gauge.gauge-big { background: linear-gradient(135deg, #eef2ff, #f8f9ff); border-color: #d8def7; }
+  .gauge.gauge-big { background: linear-gradient(135deg, var(--tint), #f4f8f0); border-color: #c5d8b6; }
   .gauge svg { display: block; margin: 0 auto; }
   .gauge-label { font-size: 0.8rem; font-weight: 600; color: #495057; margin-top: 0.5rem; }
   .gauge-big .gauge-label { font-size: 0.9rem; color: var(--primary); }
@@ -185,7 +190,7 @@
   }
   .section-tile:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(67,97,238,0.12);
+    box-shadow: 0 8px 24px rgba(81,127,52,0.15);
     border-color: var(--primary);
   }
   .section-tile .tile-icon { font-size: 1.7rem; }
@@ -250,10 +255,10 @@
 <body>
 
 <header>
-  <span class="logo">🔍</span>
+  <img class="logo" src="logo.png" alt="Beratung Hagl" />
   <div>
     <h1>Super Analyst</h1>
-    <p>KI-gestützte Unternehmensanalyse — Demand, Competitive &amp; AI Visibility Intelligence</p>
+    <p>KI-gestützte Unternehmensanalyse — Beratung Hagl</p>
   </div>
 </header>
 
