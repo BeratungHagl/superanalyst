@@ -1,5 +1,8 @@
 openai
 firecrawl-py
-streamlit
 pydantic
 python-dotenv
+streamlit
+fastapi
+uvicorn
+httpx

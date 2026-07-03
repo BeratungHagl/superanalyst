@@ -1,38 +1,37 @@
 import os
-from firecrawl import FirecrawlApp
+from firecrawl.v2.client import FirecrawlClient
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
 def scrape_website(url: str) -> dict:
-    app = FirecrawlApp(api_key=os.getenv("FIRECRAWL_API_KEY"))
+    client = FirecrawlClient(api_key=os.getenv("FIRECRAWL_API_KEY"))
 
-    result = app.crawl_url(
+    result = client.crawl(
         url,
-        params={
-            "limit": 8,
-            "scrapeOptions": {"formats": ["markdown"]},
-            "includePaths": [
-                "/", "/leistungen", "/services", "/ueber-uns", "/about",
-                "/impressum", "/referenzen", "/loesungen", "/karriere",
-                "/produkte", "/angebot", "/kontakt"
-            ],
-        },
+        limit=8,
+        include_paths=[
+            "/", "/leistungen", "/services", "/ueber-uns", "/about",
+            "/impressum", "/referenzen", "/loesungen", "/karriere",
+            "/produkte", "/angebot", "/kontakt"
+        ],
+        formats=["markdown"],
+        only_main_content=True,
         poll_interval=3,
     )
 
     pages = []
-    if hasattr(result, "data"):
-        for page in result.data:
-            markdown = getattr(page, "markdown", None) or ""
-            metadata = getattr(page, "metadata", {}) or {}
-            if markdown.strip():
-                pages.append({
-                    "url": metadata.get("url", metadata.get("sourceURL", "")),
-                    "title": metadata.get("title", ""),
-                    "description": metadata.get("description", ""),
-                    "content": markdown,
-                })
+    result_dict = result.model_dump()
+    for page in result_dict.get("data") or []:
+        markdown = page.get("markdown") or ""
+        metadata = page.get("metadata") or {}
+        if markdown.strip():
+            pages.append({
+                "url": metadata.get("url") or metadata.get("source_url") or "",
+                "title": metadata.get("title") or "",
+                "description": metadata.get("description") or "",
+                "content": markdown,
+            })
 
     return {"url": url, "pages": pages}

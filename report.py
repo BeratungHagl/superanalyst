@@ -1,18 +1,76 @@
 from datetime import date
-from models import CompanyProfile, StrategicAnalysis
+from models import (
+    CompanyProfile, StrategicAnalysis,
+    DemandIntelligence, CompetitiveIntelligence, AIVisibilityIntelligence,
+    Scoring, ExternalIntelligence, ExecutiveSummary,
+)
 
 
-def generate_report(profile: CompanyProfile, analysis: StrategicAnalysis) -> str:
+def _score_bar(score: int) -> str:
+    filled = "█" * score
+    empty = "░" * (10 - score)
+    return f"{filled}{empty} {score}/10"
+
+
+def generate_report(
+    profile: CompanyProfile,
+    results: dict,
+    extra_sources: dict | None = None,
+) -> str:
     today = date.today().strftime("%d.%m.%Y")
+    extra_sources = extra_sources or {}
 
-    ansprechpartner = (
-        "\n".join(f"  - {p}" for p in profile.ansprechpartner)
-        if profile.ansprechpartner
-        else "  - Nicht identifiziert"
-    )
+    strategy: StrategicAnalysis = results["strategy"]
+    demand: DemandIntelligence = results["demand"]
+    competitive: CompetitiveIntelligence = results["competitive"]
+    ai: AIVisibilityIntelligence = results["ai_visibility"]
+    scoring: Scoring = results["scoring"]
+    external: ExternalIntelligence = results["external"]
+    executive: ExecutiveSummary = results["executive"]
+
+    # Ansprechpartner: Hunter-Daten bevorzugen, sonst Profil-Extraktion
+    hunter = extra_sources.get("hunter", {})
+    if hunter.get("available") and hunter.get("kontakte"):
+        ansprechpartner_lines = []
+        for k in hunter["kontakte"][:5]:
+            line = f"  - **{k['name']}** — {k['position'] or 'Position unbekannt'}"
+            if k.get("abteilung"):
+                line += f" | {k['abteilung']}"
+            line += f" | `{k['email']}`"
+            if k.get("confidence"):
+                line += f" *(Konfidenz: {k['confidence']}%)*"
+            ansprechpartner_lines.append(line)
+        ansprechpartner = "\n".join(ansprechpartner_lines)
+    elif profile.ansprechpartner:
+        ansprechpartner = "\n".join(f"  - {p}" for p in profile.ansprechpartner)
+    else:
+        ansprechpartner = "  - Nicht identifiziert"
+
+    bullets_md = "\n".join(f"- {b}" for b in executive.bullets)
+
+    # Quellen-Status
+    sources_rows = _build_sources_table(extra_sources)
 
     report = f"""# Unternehmensanalyse: {profile.firmenname}
-*Erstellt am {today} | Super Analyst*
+*Erstellt am {today} | Super Analyst V2*
+
+---
+
+## Executive Summary
+
+{bullets_md}
+
+---
+
+## Scoring-Übersicht
+
+| Dimension | Score | Bewertung |
+|---|---|---|
+| **Positionierung** | {_score_bar(scoring.positionierung_score)} | {scoring.positionierung_begruendung} |
+| **Demand** | {_score_bar(scoring.demand_score)} | {demand.demand_score_begruendung} |
+| **Competitive** | {_score_bar(scoring.competitive_score)} | {competitive.competitive_score_begruendung} |
+| **AI Visibility** | {_score_bar(scoring.ai_visibility_score)} | {ai.ai_visibility_score_begruendung} |
+| **🏆 Gesamt** | {_score_bar(scoring.gesamt_score)} | {scoring.gesamt_begruendung} |
 
 ---
 
@@ -33,82 +91,170 @@ def generate_report(profile: CompanyProfile, analysis: StrategicAnalysis) -> str
 
 ---
 
-## 1. Unternehmen
+## Datenquellen
 
-### Was wird verkauft?
-{analysis.was_wird_verkauft}
-
-### Leistungen
-{analysis.leistungen}
-
-### Welche Probleme werden gelöst?
-{analysis.probleme_die_geloest_werden}
+{sources_rows}
 
 ---
 
-## 2. Zielgruppe
+## External Intelligence
 
-### Wahrscheinliche Zielgruppe
-{analysis.zielgruppe}
+### Demand Signals
+{external.demand_signals}
 
-### Adressierte Kundengruppen
-{analysis.kundengruppen}
+### Competitive Signals
+{external.competitive_signals}
 
-### Spezifität der Zielgruppe
-{analysis.spezifitaet_zielgruppe}
+### AI Visibility
+{external.ai_visibility_summary}
 
----
+### Chancen
+{external.chancen}
 
-## 3. Positionierung
-
-### Klarheit der Positionierung
-{analysis.klarheit_positionierung}
-
-### Differenzierung vom Wettbewerb
-{analysis.differenzierung}
-
-### Kommunikationsstil
-{analysis.kommunikation_generisch_oder_konkret}
+### Risiken
+{external.risiken}
 
 ---
 
-## 4. Leistungsversprechen
+## Demand Intelligence
 
-### Kommuniziertes Leistungsversprechen
-{analysis.leistungsversprechen}
+### Sichtbarkeit
+{demand.sichtbarkeit}
 
-### Leistungen vs. Ergebnisse
-{analysis.leistungen_vs_ergebnisse}
+### Gefundene Themen & Keywords
+{demand.gefundene_themen}
 
----
+### Nachfragepotenziale
+{demand.nachfragepotenziale}
 
-## 5. Wachstum & Chancen
+### Unbesetzte Themen
+{demand.unbesetzte_themen}
 
-### Mögliche Wachstumshemmnisse
-{analysis.wachstumshemmnisse}
-
-### Identifizierte Schwachstellen
-{analysis.schwachstellen}
-
-### Erkennbare Chancen
-{analysis.chancen}
+**Demand Score: {_score_bar(demand.demand_score)}**
+*{demand.demand_score_begruendung}*
 
 ---
 
-## 6. Beratungshypothesen
+## Competitive Intelligence
 
-### Ziel des Erstkontakts (Hypothese)
-{analysis.ziel_des_kontakts}
+### Stärkste Wettbewerber
+{competitive.staerkste_wettbewerber}
 
-### Vermutete Herausforderungen
-{analysis.vermutete_herausforderungen}
+### Themen-Dominanz
+{competitive.themen_dominanz}
 
-### Relevante Analysebereiche
-{analysis.relevante_analysebereiche}
+### Häufiger gefunden
+{competitive.haeufiger_gefunden}
+
+**Competitive Score: {_score_bar(competitive.competitive_score)}**
+*{competitive.competitive_score_begruendung}*
 
 ---
 
-*Dieser Report wurde automatisch auf Basis öffentlich zugänglicher Website-Inhalte erstellt.*
-*Super Analyst | {today}*
+## AI Visibility Intelligence
+
+### Markennennung in AI-Systemen
+{ai.marke_in_ai_genannt}
+
+### Wettbewerber in AI-Systemen
+{ai.wettbewerber_in_ai}
+
+### Verwendete Quellen
+{ai.verwendete_quellen}
+
+### Themen mit AI-Sichtbarkeit
+{ai.themen_mit_ai_sichtbarkeit}
+
+**AI Visibility Score: {_score_bar(ai.ai_visibility_score)}**
+*{ai.ai_visibility_score_begruendung}*
+
+---
+
+## Strategische Analyse
+
+### 1. Unternehmen
+
+**Was wird verkauft?**
+{strategy.was_wird_verkauft}
+
+**Leistungen**
+{strategy.leistungen}
+
+**Welche Probleme werden gelöst?**
+{strategy.probleme_die_geloest_werden}
+
+### 2. Zielgruppe
+
+**Wahrscheinliche Zielgruppe**
+{strategy.zielgruppe}
+
+**Adressierte Kundengruppen**
+{strategy.kundengruppen}
+
+**Spezifität**
+{strategy.spezifitaet_zielgruppe}
+
+### 3. Positionierung
+
+**Klarheit der Positionierung**
+{strategy.klarheit_positionierung}
+
+**Differenzierung**
+{strategy.differenzierung}
+
+**Kommunikationsstil**
+{strategy.kommunikation_generisch_oder_konkret}
+
+**Positionierung Score: {_score_bar(scoring.positionierung_score)}**
+
+### 4. Leistungsversprechen
+
+{strategy.leistungsversprechen}
+
+*Leistungen vs. Ergebnisse: {strategy.leistungen_vs_ergebnisse}*
+
+### 5. Wachstum
+
+**Wachstumshemmnisse**
+{strategy.wachstumshemmnisse}
+
+**Schwachstellen**
+{strategy.schwachstellen}
+
+**Chancen**
+{strategy.chancen}
+
+---
+
+## Beratungshypothesen
+
+| Aspekt | Hypothese |
+|---|---|
+| **Ziel des Erstkontakts** | {strategy.ziel_des_kontakts} |
+| **Vermutete Herausforderungen** | {strategy.vermutete_herausforderungen} |
+| **Relevante Analysebereiche** | {strategy.relevante_analysebereiche} |
+
+---
+
+*Dieser Report wurde automatisch auf Basis öffentlich zugänglicher Daten erstellt.*
+*Super Analyst V2 | {today}*
 """
     return report
+
+
+def _build_sources_table(extra_sources: dict) -> str:
+    sx = extra_sources.get("sistrix", {})
+    si_info = f"Sichtbarkeitsindex {sx.get('sichtbarkeitsindex')} (Trend: {sx.get('trend')})" if sx.get("available") else "–"
+
+    rows = [
+        ("Northdata", "✅" if extra_sources.get("northdata", {}).get("available") else "⚠️ n.v."),
+        ("Sistrix SEO", f"✅ {si_info}" if sx.get("available") else "⚠️ n.v."),
+        ("Amazon", "✅" if extra_sources.get("amazon", {}).get("available") else "⚠️ n.v."),
+        ("LinkedIn", "✅" if extra_sources.get("linkedin", {}).get("available") else "–"),
+        ("Google News", "✅" if extra_sources.get("google", {}).get("available") else "–"),
+        ("Hunter.io", f"✅ {len(extra_sources.get('hunter', {}).get('kontakte', []))} Kontakt(e) gefunden" if extra_sources.get("hunter", {}).get("available") else "⚠️ n.v."),
+    ]
+
+    table = "| Quelle | Status |\n|---|---|\n"
+    table += "\n".join(f"| **{name}** | {status} |" for name, status in rows)
+    return table
